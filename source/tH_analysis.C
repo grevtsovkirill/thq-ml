@@ -31,11 +31,19 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 
-TH1F *h_jet[10][2];
+TH1F *h_Njet[10][10];
+TH1F *h_jetPt[10][10];
 TH1F *h_cutflow_2l[2];
-vector<string> variables={"pt","eta"};
-vector<string> jt={"","b"};
+//vector<string> variables={"N","pt"};
+vector<string> jt={"","b","f"};
 double b_tag_cut=0.83;
+
+
+// vector<double> bins_dr={0, 0.4, 0.8, 1.2, 1.6, 2, 2.4, 2.8, 3.2, 3.6, 4};
+// vector<double> bins_n={2,3,4,5,6,7};
+// vector<double> bins_pt={25,45,65,85,100,150,200};
+// vector<double> bins_eta = {-2.5,-2.25,-1.75, -1.5,-1,-0.75,-0.5,-0.25,0,0.25, 0.5,0.75, 1,1.25, 1.5,1.75, 2,2.25, 2.5};
+// vector<vector<double>> vec_range = {bins_n,bins_pt,bins_eta};
 
 void tH_analysis::Begin(TTree * /*tree*/)
 {
@@ -55,16 +63,17 @@ void tH_analysis::SlaveBegin(TTree * /*tree*/)
    TString option = GetOption();
    char hname[1000];
    for(int i=0;i<jt.size();i++){
-     for(int j=0;j<variables.size();j++){
-       sprintf(hname,"%sjet_%s",jt[i].c_str(),variables[j].c_str());
-       h_jet[j][i]=new TH1F(hname,hname,100,0,1000);
+     for(int j=0;j<1;j++){ //variables.size()
+       sprintf(hname,"N%sjet",jt[i].c_str()); 
+       h_Njet[i][j]=new TH1F(hname,hname,9, -0.5, 8.5);
+       sprintf(hname,"%sjet_pT",jt[i].c_str()); //,variables[j].c_str()
+       h_jetPt[i][j]=new TH1F(hname,hname,100,0,1000);
      }
    }
    
    //1(mumu) 2(OF) 3(ee) 
    const std::vector<TString> s_cutDescs =
-     {  "Preselections","Nleps","SS","mm","OF","ee","lepPt","bcentr","qforwE"};
-   //    1              2       3     4    5     6    7         8        9                   10                     11
+     {  "Preselections","Nleps","tight*/prompt","lepPt>20","lepCentr","SS","jPt","bCentr","qforwE","mm","OF","ee"};
    int Ncuts = s_cutDescs.size();
    h_cutflow_2l[0] = new TH1F("cf2l","cf2l",Ncuts,0,Ncuts);
    h_cutflow_2l[1] = new TH1F("cf2l_raw","cf2l_raw",Ncuts,0,Ncuts);
@@ -95,10 +104,11 @@ Bool_t tH_analysis::Process(Long64_t entry)
   //fReader.SetEntry(entry);
   fReader.SetLocalEntry(entry);
   weight_tot=*weight_mc * *weight_pileup *  *weight_leptonSF *  *weight_globalLeptonTriggerSF * *weight_jvt;
+  int cf_counter=0;
   //presel
-  h_cutflow_2l[0]->Fill(0.,weight_tot);
-  h_cutflow_2l[1]->Fill(0.,1);
-  
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
   nJet = jet_pt.GetSize();
   nEl = el_pt.GetSize();
   nMu = mu_pt.GetSize();
@@ -106,80 +116,128 @@ Bool_t tH_analysis::Process(Long64_t entry)
   int dilep_type = 1 + nEl;//  1(mumu) 2(OF) 3(ee)
   //Nlep
   if(totleptons!=2) return 0;
-  h_cutflow_2l[0]->Fill(1,weight_tot);
-  h_cutflow_2l[1]->Fill(1,1);
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
+  bool lep_tight=true;
+  for (int iEl = 0; iEl < nEl; ++iEl) {
+    if( el_true_isPrompt[iEl]==0)lep_tight=false;
+  }
+  for (int iMu = 0; iMu < nMu; ++iMu) {
+    if( mu_true_isPrompt[iMu]==0)lep_tight=false;
+  }
+
+  if(!lep_tight) return 0;
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
 
   //std::cout << "nEl="<<nEl<<", nMu="<<nMu << std::endl;
   float l0_charge,l1_charge;  
   float l0_pt,l1_pt;
+  float l0_eta,l1_eta;
   if ( dilep_type==1 ){ 
     l0_charge= mu_charge[0]; l1_charge= mu_charge[1];
+    l0_eta= mu_eta[0]; l1_eta= mu_eta[1];
     l0_pt= mu_pt[0]/1e3; l1_pt= mu_pt[1]/1e3;
   }
   if ( dilep_type==3 ){ 
     l0_charge= el_charge[0]; l1_charge= el_charge[1];
+    l0_eta= el_eta[0]; l1_eta= el_eta[1];
     l0_pt= el_pt[0]/1e3; l1_pt= el_pt[1]/1e3;
   }
   if ( dilep_type==2 ){ 
     if(mu_pt[0]>el_pt[0]){ 
       l0_charge= mu_charge[0]; l1_charge= el_charge[0];
+      l0_eta= mu_eta[0]; l1_eta= el_eta[0];
       l0_pt= mu_pt[0]/1e3; l1_pt= el_pt[0]/1e3;
     }
     else{    
       l1_charge= mu_charge[0]; l0_charge= el_charge[0];
+      l1_eta= mu_eta[0]; l0_eta= el_eta[0];
       l1_pt= mu_pt[0]/1e3; l0_pt= el_pt[0]/1e3;
     }
   }
 
+  //lep Pt cuts
+  if(l0_pt<20||l1_pt<20) return 0;  
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
+  //lep eta cuts
+  if(abs(l0_eta)>2.5||abs(l1_eta)>2.5) return 0;  
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
   float charges=l0_charge*l1_charge;
   //SS
   if(charges<0) return 0;
-  h_cutflow_2l[0]->Fill(2,weight_tot);
-  h_cutflow_2l[1]->Fill(2,1);
-  //Flavour
-  h_cutflow_2l[0]->Fill(2+dilep_type,weight_tot);
-  h_cutflow_2l[1]->Fill(2+dilep_type,1);
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
   
-  //lep Pt cuts
-  if(l0_pt<20||l1_pt<20) return 0;  
-  h_cutflow_2l[0]->Fill(6,weight_tot);
-  h_cutflow_2l[1]->Fill(6,1);
 
   int nB=0;
   int nBf=0;
-  int nBc=0;
+  int nc=0;
   int nf=0;
   int nfE=0;
+  bool jetpt_pass=true;
   for (int iJet = 0; iJet < nJet; ++iJet) {
+    if(jet_pt[iJet]/1e3<25){
+      jetpt_pass=false;
+    }
+
     if(jet_pt[iJet]/1e3>25){
-      if(jet_mv2c10[iJet]>b_tag_cut){
-	//Found bjet:
-	nB++;
-	if(abs(jet_eta[iJet])<2.5) nBc++;
-	if(abs(jet_eta[iJet])>2.5) nBf++;
-      }//b
-
-      h_jet[0][0]->Fill(jet_pt[iJet]/1000.);
-
+      if(abs(jet_eta[iJet])<2.5){ 
+	nc++;
+	if(jet_mv2c10[iJet]>b_tag_cut){
+	  //Found bjet:
+	  nB++;
+	}//b	
+      }//central
+      
       if(abs(jet_eta[iJet])>2.5){ 
 	nf++;
 	if(jet_pt[iJet]/1e3>40) nfE++;
       }
     }//pt>25
   }
-  if(nBc<1) return 0;  
-  h_cutflow_2l[0]->Fill(7,weight_tot);
-  h_cutflow_2l[1]->Fill(7,1);
 
-  std::cout << "nJet="<<nJet<< ", nB="<< nB <<", nBc="<< nBc << ", nf="<< nf << ", nfE="<< nfE << std::endl;
+  //jetpt
+  if(jetpt_pass==false) return 0;  
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
+  //central b
+  if(nB<1) return 0;  
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
+  cf_counter++;
+
+  //std::cout << "nJet="<<nJet<< ", nB="<< nB <<", nBc="<< nBc << ", nf="<< nf << ", nfE="<< nfE << std::endl;
+  //energetic forward
   if(nfE<1) return 0;  
-  h_cutflow_2l[0]->Fill(8,weight_tot);
-  h_cutflow_2l[1]->Fill(8,1);
+  h_cutflow_2l[0]->Fill(cf_counter,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter,1);
 
+  //Flavour
+  h_cutflow_2l[0]->Fill(cf_counter+dilep_type,weight_tot);  h_cutflow_2l[1]->Fill(cf_counter+dilep_type,1);
+  //cf_counter=cf_counter+4;
+  cf_counter++;
   
-  for (int iEl = 0; iEl < nEl; ++iEl) {
-    //h_jet[0][0]->Fill(jet_pt[iJet]/1000.);
-    
+
+  h_Njet[0][0]->Fill(nc,weight_tot);
+  h_Njet[1][0]->Fill(nB,weight_tot);
+  h_Njet[2][0]->Fill(nfE,weight_tot);
+  for (int iJet = 0; iJet < nJet; ++iJet) {
+      if(abs(jet_eta[iJet])<2.5){ 
+	h_jetPt[0][0]->Fill(jet_pt[iJet]/1000.,weight_tot);
+	if(jet_mv2c10[iJet]>b_tag_cut){
+	  h_jetPt[1][0]->Fill(jet_pt[iJet]/1000.,weight_tot);	  
+	}//b	
+      }//central
+      
+      if(abs(jet_eta[iJet])>2.5){ 
+	nf++;
+	if(jet_pt[iJet]/1e3>40) h_jetPt[2][0]->Fill(jet_pt[iJet]/1000.,weight_tot);
+      }
   }
   
    return kTRUE;
@@ -198,10 +256,13 @@ void tH_analysis::Terminate()
    // The Terminate() function is the last function to be called during
    // a query. It always runs on the client, it can be used to present
    // the results graphically or save the results to file.
-  TFile hfile("res_tHq.root","RECREATE","tHq");
+  TFile hfile("Res_tHq.root","RECREATE","tHq");
   h_cutflow_2l[0]->Write(); 
   h_cutflow_2l[1]->Write(); 
-  h_jet[0][0]->Write(); 
+  for(int i=0;i<jt.size();i++){  
+    h_jetPt[i][0]->Write(); 
+    h_Njet[i][0]->Write(); 
+  }
   fOutput->Write();
 
   // //Example to retrieve output from output list
