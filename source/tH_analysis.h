@@ -153,7 +153,10 @@ public :
    virtual Bool_t  Notify();
    virtual Bool_t  Process(Long64_t entry);
    virtual Int_t   GetEntry(Long64_t entry, Int_t getall = 0) { return fChain ? fChain->GetTree()->GetEntry(entry, getall) : 0; }
+   //original 
    virtual void    SetOption(const char *option) { fOption = option; }
+   //virtual void    SetOption(const char* option[]) { fOption = *option[]; }
+   // char* argv[]
    virtual void    SetObject(TObject *obj) { fObject = obj; }
    virtual void    SetInputList(TList *input) { fInput = input; }
    virtual TList  *GetOutputList() const { return fOutput; }
@@ -177,6 +180,7 @@ void tH_analysis::Init(TTree *tree)
    // (once per file to be processed).
 
    fReader.SetTree(tree);
+   
 }
 
 Bool_t tH_analysis::Notify()

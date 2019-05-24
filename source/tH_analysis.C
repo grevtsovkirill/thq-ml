@@ -38,6 +38,7 @@ TH1F *h_cutflow_2l[2];
 vector<string> jt={"","b","f"};
 double b_tag_cut=0.83;
 
+string input_name="";
 
 // vector<double> bins_dr={0, 0.4, 0.8, 1.2, 1.6, 2, 2.4, 2.8, 3.2, 3.6, 4};
 // vector<double> bins_n={2,3,4,5,6,7};
@@ -52,6 +53,9 @@ void tH_analysis::Begin(TTree * /*tree*/)
    // The tree argument is deprecated (on PROOF 0 is passed).
 
    TString option = GetOption();
+   std::cout << "option ="<< option << std::endl;
+   input_name=option;
+
 }
 
 void tH_analysis::SlaveBegin(TTree * /*tree*/)
@@ -256,7 +260,8 @@ void tH_analysis::Terminate()
    // The Terminate() function is the last function to be called during
    // a query. It always runs on the client, it can be used to present
    // the results graphically or save the results to file.
-  TFile hfile("Res_tHq.root","RECREATE","tHq");
+  string outname="Res_"+input_name+".root";
+  TFile hfile(outname.c_str(),"RECREATE"); //,"tHq"
   h_cutflow_2l[0]->Write(); 
   h_cutflow_2l[1]->Write(); 
   for(int i=0;i<jt.size();i++){  
